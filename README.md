@@ -1,55 +1,203 @@
-# Ops Copilot — Teste Técnico Full-Stack
+# Ops Copilot - Teste Tecnico Full-Stack
 
-Olá! Este é o meu projeto para o teste técnico da Adapt EdTech de desenvolvedor Full-Stack. O **Ops Copilot** é um sistema inteligente para gestão de incidentes e tarefas, com o diferencial de utilizar Inteligência Artificial para analisar tickets e sugerir os próximos passos.
+## Visao do produto
+Ops Copilot e um mini sistema para gestao de tickets operacionais (incidentes e tarefas), com apoio de IA para triagem:
+- resumo automatico do ticket
+- proximos passos sugeridos
+- classificacao de risco
+- categorias sugeridas
 
-## 🚀 Visão do Produto
-O objetivo foi criar uma ferramenta que ajude equipes de operações (DevOps/SRE) a não apenas registrarem tickets, mas também a obterem uma triagem automática. A IA resume o problema, avalia o risco e sugere ações imediatas, economizando tempo precioso no dia a dia.
+## Stack e versoes reais do projeto
 
-## 🛠️ Arquitetura do Projeto
-Construí o sistema utilizando o que há de mais moderno no ecossistema Web:
+| Camada | Tecnologia | Versao em uso |
+|---|---|---|
+| Framework web | Next.js (App Router) | `16.1.6` |
+| UI | React | `19.2.3` |
+| Linguagem | TypeScript | `^5` |
+| Estilo | Tailwind CSS | `^4` |
+| Componentes base | `@base-ui/react` | `^1.3.0` |
+| Auth | NextAuth | `^5.0.0-beta.30` |
+| ORM | Prisma | `6.19.2` |
+| Prisma Client | `@prisma/client` | `^6.19.2` |
+| Banco padrao da app | SQLite | via `DATABASE_URL=file:./dev.db` |
+| IA (SDK) | OpenAI SDK | `^6.27.0` |
+| IA (SDK) | Google Generative AI SDK | `^0.24.1` |
+| Validacao | Zod | `^4.3.6` |
+| Formulario | React Hook Form | `^7.71.2` |
+| Testes | Vitest | `^4.1.0` |
+| Lint | ESLint | `^9` |
+| Runtime Docker | Node | `20-alpine` (Dockerfile) |
+| Banco no compose | PostgreSQL image | `postgres:15` |
 
-- **Next.js 15 (App Router)**: Para uma aplicação rápida e com excelente SEO/UX.
-- **TypeScript**: Garantindo segurança no código e tipagem forte.
-- **Prisma & SQLite/PostgreSQL**: Modelagem de dados eficiente. Atualmente configurado para rodar com SQLite por padrão para facilitar sua avaliação, mas pronto para escalar no Docker.
-- **Docker & Docker Compose**: O ambiente é totalmente containerizado, facilitando o "play" em qualquer máquina.
-- **NextAuth.js (v5)**: Autenticação segura com suporte a Credenciais e proteção de rotas.
-- **Shadcn/UI & Tailwind**: Interface limpa, moderna e responsiva.
+Observacao importante:
+- O `docker-compose.yml` sobe um servico `postgres`, mas a app hoje esta configurada para usar SQLite (`DATABASE_URL=file:./prisma/dev.db`).
 
-## 🐳 Como Rodar com Docker (O jeito mais rápido!)
-Se você tem o **Docker Desktop** instalado, basta rodar um comando para subir o banco e a aplicação:
+## Arquitetura resumida
+- Frontend + Backend no mesmo projeto Next.js (App Router + Route Handlers).
+- Prisma para persistencia de tickets e usuarios.
+- NextAuth Credentials para autenticacao.
+- Feature de IA com interface `AIProvider` para alternar entre providers reais e mock.
+- Cache de IA por ticket (`aiSummary`, `aiNextSteps`, `aiRiskLevel`, `aiCategories`).
+- Rate limit simples na rota de IA.
 
-1.  Clone o repositório.
-2.  Crie seu arquivo `.env` (use o `.env.example`).
-3.  No terminal, execute:
-    ```bash
-    docker compose up --build
-    ```
-4.  Acesse `http://localhost:3000`.
+## Funcionalidades implementadas
+- Login com credenciais.
+- Criacao de ticket.
+- Listagem de tickets.
+- Busca por titulo/descricao.
+- Filtros por status e prioridade.
+- Detalhe de ticket.
+- Analise com IA no detalhe do ticket.
 
-## 💻 Setup Local (Sem Docker)
-1. Instale as dependências: `npm install`
-2. Crie o banco: `npx prisma db push`
-3. Rode o dev: `npm run dev`
+## Feature de IA e fallback
+Interface principal:
+- `AIProvider.generateSummary(input): Promise<AIResponse>`
 
-### Credenciais de Teste:
-- **E-mail**: `admin@opscopilot.com`
-- **Senha**: `123456`
-*(Nota: Você pode criar novos usuários via Prisma Studio: `npx prisma studio`)*
+Providers:
+- `GeminiProvider` (modelo: `gemini-2.5-flash`)
+- `OpenAIProvider` (modelo: `gpt-4o-mini`)
+- `MockAIProvider` (fallback sem chave)
 
-## 🤖 Feature de IA
-Implementei uma interface de provedor (`AIProvider`) que permite trocar facilmente entre modelos reais e mocks:
-- **Fallback**: Se você não tiver uma API Key, o sistema usa o `MockAIProvider` para você ver como a interface se comporta.
-- **Real**: Com uma `GEMINI_API_KEY`, o sistema utiliza o modelo **Gemini 1.5 Flash** para gerar resumos reais.
+Regra de selecao atual (`getAIProvider`):
+1. Se existir `GEMINI_API_KEY`, usa Gemini.
+2. Senao, se existir `OPENAI_API_KEY`, usa OpenAI.
+3. Senao, usa `MockAIProvider`.
 
-## 🎯 Decisões Técnicas e Trade-offs
-- **Docker**: Optei por containerizar para garantir que minha solução rode exatamente igual na sua máquina. Tive que fazer alguns ajustes no `Dockerfile` para o Prisma rodar perfeitamente em imagens leves (Alpine).
-- **SQLite**: Usei como padrão inicial para que você não precise configurar um banco Postgres só para testar, mas deixei o código preparado para banco de dados robustos.
-- **Segurança**: As senhas são guardadas como hash usando `bcryptjs`, seguindo boas práticas de mercado.
+## Como rodar com Docker
+Pre-requisito: Docker Desktop.
 
-## 🤝 Jornada com IA (Antigravity)
-Durante o desenvolvimento deste teste, utilizei o **Antigravity (Gemini 2.5 Pro)** como meu parceiro de programação. 
-- Ele me ajudou na configuração fina do Docker, na estruturação do NextAuth v5 e na documentação.
-- **Revisão Manual**: Todas as sugestões do agente foram revisadas por mim para garantir que atendiam exatamente ao que foi solicitado no teste técnico. Esse processo acelerou meu desenvolvimento em cerca de 3x, permitindo focar mais na regra de negócio e experiência do usuário.
+```bash
+docker compose up -d --build
+```
 
----
-*Feito por mim (com uma ajudinha da IA).*
+Acesse:
+- `http://localhost:3000`
+
+Parar ambiente:
+```bash
+docker compose down
+```
+
+## Como rodar local (sem Docker)
+1. Instalar dependencias:
+```bash
+npm install
+```
+2. Aplicar schema no banco local:
+```bash
+npx prisma db push
+```
+3. Rodar seed (usuario admin):
+```bash
+npx prisma db seed
+```
+4. Subir app:
+```bash
+npm run dev
+```
+
+## Credenciais de teste
+- Email: `admin@opscopilot.com`
+- Senha: `123456`
+
+## Variaveis de ambiente
+Base:
+- `DATABASE_URL`
+- `NEXTAUTH_SECRET`
+- `NEXTAUTH_URL`
+
+IA (opcionais):
+- `GEMINI_API_KEY`
+- `OPENAI_API_KEY`
+
+Sem chave de IA, o sistema segue funcional com `MockAIProvider`.
+
+## Testes e qualidade
+Rodar lint:
+```bash
+npm run lint
+```
+
+Rodar todos os testes:
+```bash
+npm test
+```
+
+Rodar somente testes de IA/fallback:
+```bash
+npm run test:ai
+```
+
+Rodar build de producao:
+```bash
+npm run build
+```
+
+## Decisoes tecnicas e trade-offs
+- SQLite como padrao para facilitar avaliacao local.
+- Campo `tags` armazenado como JSON string no SQLite (simplifica MVP).
+- Fallback de IA para nao bloquear demo sem API key.
+- Cache de IA por ticket para reduzir custo e latencia.
+- Rate limit basico para proteger endpoint de IA.
+
+## Uso de IA no desenvolvimento
+Ferramentas usadas:
+- Antigravity (Gemini 2.5 Pro)
+- Codex (GPT-5)
+
+Como foi usado:
+- apoio em estruturacao de arquitetura e ajustes de implementacao
+- apoio em revisao de testes e documentacao
+
+Revisao manual:
+- toda sugestao foi revisada e ajustada antes de integrar no codigo final.
+
+## Arquitetura do Sistema
+
+```mermaid
+graph TD
+    classDef frontend fill:#3b82f6,stroke:#1e40af,color:#fff
+    classDef backend fill:#10b981,stroke:#14532d,color:#fff
+    classDef database fill:#8b5cf6,stroke:#4c1d95,color:#fff
+    classDef ai fill:#f59e0b,stroke:#92400e,color:#fff
+    classDef auth fill:#ef4444,stroke:#991b1b,color:#fff
+
+    User[Usuario Final]
+
+    subgraph Frontend ["Frontend (Next.js App Router)"]
+        UI[UI Components<br/>Base UI + Tailwind CSS]
+        Pages[Pages & Server Components<br/>/ • /tickets • /tickets/[id] • /tickets/new]
+    end
+
+    subgraph AuthLayer ["Autenticacao"]
+        Auth[Middleware/Proxy + Cookies<br/>NextAuth Credentials]
+    end
+
+    subgraph Backend ["Backend (Route Handlers)"]
+        API[API Routes<br/>/api/tickets<br/>/api/ai/summarize]
+        Validation[Zod Validation + Error Handling]
+    end
+
+    subgraph Database ["Banco de Dados"]
+        Prisma[Prisma ORM]
+        DB[(SQLite<br/>ou Postgres via Docker)]
+        Cache[Cache de IA<br/>aiSummary + aiNextSteps]
+    end
+
+    subgraph AI ["Inteligencia Artificial"]
+        AIProvider[AIProvider Interface<br/>Gemini / OpenAI / Mock]
+        Mock[MockAIProvider<br/>fallback sem API key]
+    end
+
+    User --> UI
+    UI --> Pages
+    Pages --> Auth
+    Pages --> API
+    API --> Validation
+    Validation --> Prisma
+    Prisma --> DB
+    Prisma --> Cache
+    API --> AIProvider
+    AIProvider --> Mock
+    AIProvider -.->|"Chama API externa"| RealAI[Gemini ou OpenAI]
+```

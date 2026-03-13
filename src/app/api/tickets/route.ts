@@ -1,27 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { getAIProvider } from "@/lib/ai";
 import { ticketSchema } from "@/lib/validations/ticket";
+import { ZodError } from "zod";
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
-    const q = searchParams.get("q") || "";
+    const buscar = searchParams.get("buscar") || "";
     const status = searchParams.get("status"); // ex: "OPEN,IN_PROGRESS"
     const priority = searchParams.get("priority");
     const tagsStr = searchParams.get("tags");
-    const cursor = searchParams.get("cursor"); // simple offset for now
-
     const page = parseInt(searchParams.get("page") || "1");
     const limit = 10;
     const skip = (page - 1) * limit;
 
     try {
-        const whereClause: any = {};
+        const whereClause: Prisma.TicketWhereInput = {};
 
-        if (q) {
+        if (buscar) {
             whereClause.OR = [
-                { title: { contains: q } }, // SQLite search is case insensitive by default for some like operations, but might need adjustment
-                { description: { contains: q } }
+                { title: { contains: buscar } },
+                { description: { contains: buscar } }
             ];
         }
 
@@ -33,11 +32,12 @@ export async function GET(request: NextRequest) {
             whereClause.priority = priority;
         }
 
-        // Since tags are stored as a JSON string in SQLite, exact match in array is hard via SQL alone, 
-        // but in a real MVP with String[] this would be `hasSome`. For SQLite we can do a naive `contains` trick or fetch and filter
+        // Tags são armazenadas como uma string JSON no SQLite, entao nao podemos usar `has` apenas com SQL.
+        // Mas em um MVP com String[] isso poderia ser um hasSome ou hasEvery dependendo da necessidade.
+
         if (tagsStr) {
             const tags = tagsStr.split(",");
-            // Naive fallback for SQLite stringified JSON array
+            // fallback para SQLite array JSON convertido em String
             if (tags.length > 0) {
                 whereClause.AND = tags.map(t => ({ tags: { contains: `"${t}"` } }));
             }
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
                 totalPages: Math.ceil(total / limit)
             }
         });
-    } catch (error: any) {
+    } catch {
         return NextResponse.json(
             { message: "Falha em buscar tickets", code: "FETCH_ERROR" },
             { status: 500 }
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
                 description: validatedData.description,
                 status: validatedData.status,
                 priority: validatedData.priority,
-                tags: JSON.stringify(validatedData.tags), // SQLite fallback for String[]
+                tags: JSON.stringify(validatedData.tags), // SQLite fallback para String[]
             },
         });
 
@@ -93,15 +93,17 @@ export async function POST(request: NextRequest) {
             ...ticket,
             tags: JSON.parse(ticket.tags)
         }, { status: 201 });
-    } catch (error: any) {
-        if (error.name === "ZodError") {
+    } catch (error) {
+        if (error instanceof ZodError) {
             return NextResponse.json(
-                { message: "Validation failed", code: "VALIDATION_ERROR", errors: error.errors },
+                { message: "Validation failed", code: "VALIDATION_ERROR", errors: error.issues },
                 { status: 400 }
             );
         }
+
+        const message = error instanceof Error ? error.message : "Failed to create ticket";
         return NextResponse.json(
-            { message: error.message || "Failed to create ticket", code: "CREATE_ERROR" },
+            { message, code: "CREATE_ERROR" },
             { status: 500 }
         );
     }

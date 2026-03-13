@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 
 export interface AIResponse {
     summary: string;
@@ -14,7 +14,7 @@ export interface AIProvider {
 
 export class GeminiProvider implements AIProvider {
     private genAI: GoogleGenerativeAI;
-    private model: any;
+    private model: GenerativeModel;
 
     constructor() {
         const apiKey = process.env.GEMINI_API_KEY;
@@ -49,20 +49,21 @@ export class GeminiProvider implements AIProvider {
 
         try {
             return JSON.parse(text) as AIResponse;
-        } catch (e) {
+        } catch {
             throw new Error("Failed to parse AI response JSON");
         }
     }
 }
 
 export class MockAIProvider implements AIProvider {
-    // ... (rest of the file)
+    // Este mock é usado quando nao existe chave real de IA no ambiente.
+    // Assim eu consigo demonstrar o fluxo de IA no projeto sem depender de API externa.
     async generateSummary(input: { title: string; description: string }): Promise<AIResponse> {
-        // Simulate network delay
+        // Simulando latencia de rede
         await new Promise(resolve => setTimeout(resolve, 800));
 
         return {
-            summary: "This is a simulated AI summary. The issue described appears to be a standard operational request that needs to be reviewed by the support team.",
+            summary: `This is a simulated AI summary for "${input.title}". The issue described appears to be a standard operational request that needs support team review.`,
             nextSteps: [
                 "• Review the reported issue details.",
                 "• Assign a technician if necessary.",
@@ -113,13 +114,17 @@ export class OpenAIProvider implements AIProvider {
         try {
             const parsed = JSON.parse(content) as AIResponse;
             return parsed;
-        } catch (e) {
+        } catch {
             throw new Error("Failed to parse AI response JSON");
         }
     }
 }
 
 export function getAIProvider(): AIProvider {
+    // Regra de fallback:
+    // 1) Se eu tiver GEMINI_API_KEY, uso Gemini.
+    // 2) Se nao tiver Gemini e eu tiver OPENAI_API_KEY, uso OpenAI.
+    // 3) Se nao tiver nenhuma chave, uso MockAIProvider.
     if (process.env.GEMINI_API_KEY) {
         return new GeminiProvider();
     }

@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAIProvider } from "@/lib/ai";
 import prisma from "@/lib/prisma";
 
-// Simple in-memory rate limiting (Differential)
+// Simple in-memory rate limiting
 const rateLimitMap = new Map<string, { count: number, resetTime: number }>();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 const MAX_REQUESTS = 5;
 
 export async function POST(request: NextRequest) {
     try {
-        // 1. Rate Limiting Check
-        const ip = "127.0.0.1"; // request.ip is not always available in local dev or simple deployments
+        // 1. Checagem do rate limiting
+        const ip = "127.0.0.1"; // request.ip nem sempre está disponível em ambientes de desenvolvimento local ou em implantações simples.
         const now = Date.now();
         const rateLimitData = rateLimitMap.get(ip);
 
@@ -30,9 +30,10 @@ export async function POST(request: NextRequest) {
             rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
         }
 
-        // 2. Parse Body Object
+        // 2. Processa o objeto do corpo da requisição
         const body = await request.json();
-        let { ticketId, title, description } = body;
+        const { ticketId } = body as { ticketId?: string };
+        let { title, description } = body as { title?: string; description?: string };
 
         let ticket;
 
@@ -66,11 +67,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 3. Call AI Provider
+        // 3. Chamada para AI Provider
         const aiProvider = getAIProvider();
         const result = await aiProvider.generateSummary({ title, description });
 
-        // 4. Save to DB if it's an existing ticket
+        // 4. Salve no DB se for um ticket existente
         if (ticketId) {
             await prisma.ticket.update({
                 where: { id: ticketId },
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json(result);
 
-    } catch (error: any) {
+    } catch {
         return NextResponse.json(
             { message: "AI generation failed, try again.", code: "AI_ERROR" },
             { status: 500 }

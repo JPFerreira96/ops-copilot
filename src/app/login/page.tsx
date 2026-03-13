@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Bot } from "lucide-react";
 
 export default function LoginPage() {
     return (
         <div className="flex h-screen w-full items-center justify-center bg-zinc-50 dark:bg-zinc-950">
             <Card className="w-[400px]">
                 <CardHeader>
+                    <Bot className="h-6 w-6" />
                     <CardTitle className="text-2xl">Ops Copilot</CardTitle>
                     <CardDescription>
                         Entre com suas credenciais de administrador.
@@ -20,11 +22,15 @@ export default function LoginPage() {
                         "use server";
                         try {
                             await signIn("credentials", formData);
-                        } catch (error: any) {
-                            if (error.kind === 'redirect') {
+                        } catch (error) {
+                            if (
+                                typeof error === "object" &&
+                                error !== null &&
+                                "kind" in error &&
+                                (error as { kind?: string }).kind === "redirect"
+                            ) {
                                 throw error;
                             }
-                            // handle error if needed
                             redirect("/login?error=CredentialsSignin");
                         }
                     }}

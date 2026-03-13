@@ -1,19 +1,38 @@
-"use client";
+﻿"use client"
 
+import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+    ticketPriorityBadgeClasses,
+    ticketPriorityLabels,
+    TicketPriority,
+    ticketStatusBadgeClasses,
+    ticketStatusLabels,
+    TicketStatus,
+} from "@/lib/ticket-meta"
+import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-export function TicketList({ tickets }: { tickets: any[] }) {
+type TicketListItem = {
+    id: string
+    title: string
+    status: TicketStatus
+    priority: TicketPriority
+    tags: string[]
+    createdAt: Date | string
+}
+
+export function TicketList({ tickets }: { tickets: TicketListItem[] }) {
     const router = useRouter()
 
     if (!tickets || tickets.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center p-8 text-center bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-dashed">
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-zinc-50 p-8 text-center dark:bg-zinc-900">
                 <h3 className="text-lg font-semibold">Nenhum ticket encontrado</h3>
-                <p className="text-sm text-muted-foreground mt-1">Crie um novo ticket ou altere os filtros.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Crie um novo ticket ou altere os filtros.</p>
             </div>
         )
     }
@@ -35,40 +54,39 @@ export function TicketList({ tickets }: { tickets: any[] }) {
                     {tickets.map((ticket) => (
                         <TableRow
                             key={ticket.id}
-                            className="cursor-pointer hover:bg-muted/50 transition-colors"
+                            className="cursor-pointer transition-colors hover:bg-muted/50"
                             onClick={() => router.push(`/tickets/${ticket.id}`)}
                         >
                             <TableCell className="font-medium">{ticket.id.slice(-6).toUpperCase()}</TableCell>
                             <TableCell>
-                                <Link href={`/tickets/${ticket.id}`} className="hover:underline line-clamp-1">
+                                <Link href={`/tickets/${ticket.id}`} className="line-clamp-1 hover:underline">
                                     {ticket.title}
                                 </Link>
                             </TableCell>
                             <TableCell>
-                                <div className={`px-2 py-1 text-xs rounded-full inline-block ${ticket.status === 'OPEN' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
-                                        ticket.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300' :
-                                            'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                                    }`}>
-                                    {ticket.status === 'OPEN' ? 'ABERTO' : ticket.status === 'IN_PROGRESS' ? 'EM ANDAMENTO' : 'CONCLUÍDO'}
-                                </div>
+                                <Badge className={cn("font-medium", ticketStatusBadgeClasses[ticket.status])}>
+                                    {ticketStatusLabels[ticket.status]}
+                                </Badge>
                             </TableCell>
                             <TableCell>
-                                <span className={`text-sm ${ticket.priority === 'HIGH' ? 'text-red-500 font-medium' :
-                                        ticket.priority === 'MEDIUM' ? 'text-amber-500' : 'text-green-500'
-                                    }`}>
-                                    {ticket.priority}
-                                </span>
+                                <Badge variant="outline" className={cn("font-medium", ticketPriorityBadgeClasses[ticket.priority])}>
+                                    {ticketPriorityLabels[ticket.priority]}
+                                </Badge>
                             </TableCell>
                             <TableCell>
-                                <div className="flex gap-1 flex-wrap max-w-[200px]">
-                                    {Array.isArray(ticket.tags) && ticket.tags.map((tag: string) => (
-                                        <span key={tag} className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 px-2 py-0.5 text-[10px] rounded border">
-                                            {tag}
-                                        </span>
-                                    ))}
+                                <div className="flex max-w-[220px] flex-wrap gap-1">
+                                    {Array.isArray(ticket.tags) &&
+                                        ticket.tags.map((tag) => (
+                                            <span
+                                                key={tag}
+                                                className="rounded border bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                                            >
+                                                {tag}
+                                            </span>
+                                        ))}
                                 </div>
                             </TableCell>
-                            <TableCell className="text-right text-muted-foreground text-sm">
+                            <TableCell className="text-right text-sm text-muted-foreground">
                                 {format(new Date(ticket.createdAt), "dd 'de' MMM, yyyy", { locale: ptBR })}
                             </TableCell>
                         </TableRow>

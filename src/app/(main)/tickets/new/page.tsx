@@ -1,25 +1,40 @@
-"use client";
+﻿"use client"
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { TicketFormValues, ticketSchema } from "@/lib/validations/ticket";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { X } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import {
+    isTicketPriority,
+    isTicketStatus,
+    ticketPriorityLabels,
+    ticketPriorityOptions,
+    ticketStatusLabels,
+    ticketStatusOptions,
+} from "@/lib/ticket-meta"
+import { ticketSchema } from "@/lib/validations/ticket"
+import { X } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 export default function NewTicketPage() {
-    const router = useRouter();
-    const [tagInput, setTagInput] = useState("");
-    const [submitting, setSubmitting] = useState(false);
+    const router = useRouter()
+    const [tagInput, setTagInput] = useState("")
+    const [submitting, setSubmitting] = useState(false)
 
-    const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm({
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+        setValue,
+        watch,
+    } = useForm({
         resolver: zodResolver(ticketSchema),
         defaultValues: {
             title: "",
@@ -27,62 +42,95 @@ export default function NewTicketPage() {
             priority: "MEDIUM",
             status: "OPEN",
             tags: [],
-        }
-    });
+        },
+    })
 
-    const tags = watch("tags") || [];
+    const tags = watch("tags") || []
+    const selectedStatus = watch("status")
+    const selectedPriority = watch("priority")
 
-    const addTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' || e.key === ',') {
-            e.preventDefault();
-            const newTag = tagInput.trim();
-            if (newTag.length < 3 || newTag.length > 20) {
-                toast.error("A tag deve ter entre 3 e 20 caracteres.");
-                return;
-            }
-            if (tags.length >= 5) {
-                toast.error("Máximo de 5 tags permitidas.");
-                return;
-            }
-            if (tags.includes(newTag)) {
-                toast.error("Esta tag já foi adicionada.");
-                return;
-            }
-            setValue("tags", [...tags, newTag], { shouldValidate: true });
-            setTagInput("");
+    const addTag = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key !== "Enter" && event.key !== ",") {
+            return
         }
-    };
+
+        event.preventDefault()
+        const newTag = tagInput.trim()
+
+        if (newTag.length < 3 || newTag.length > 20) {
+            toast.error("A tag deve ter entre 3 e 20 caracteres.")
+            return
+        }
+
+        if (tags.length >= 5) {
+            toast.error("Máximo de 5 tags permitidas.")
+            return
+        }
+
+        if (tags.includes(newTag)) {
+            toast.error("Esta tag já foi adicionada.")
+            return
+        }
+
+        setValue("tags", [...tags, newTag], { shouldValidate: true })
+        setTagInput("")
+    }
 
     const removeTag = (tagToRemove: string) => {
-        setValue("tags", tags.filter((t: string) => t !== tagToRemove), { shouldValidate: true });
-    };
+        setValue(
+            "tags",
+            tags.filter((tag) => tag !== tagToRemove),
+            { shouldValidate: true },
+        )
+    }
 
-    const onSubmit = async (data: any) => {
-        setSubmitting(true);
+    const handleStatusChange = (value: string | null) => {
+        if (!value || !isTicketStatus(value)) {
+            return
+        }
+
+        setValue("status", value, { shouldValidate: true, shouldDirty: true })
+    }
+
+    const handlePriorityChange = (value: string | null) => {
+        if (!value || !isTicketPriority(value)) {
+            return
+        }
+
+        setValue("priority", value, { shouldValidate: true, shouldDirty: true })
+    }
+
+    const onSubmit = async (data: unknown) => {
+        setSubmitting(true)
+
         try {
             const response = await fetch("/api/tickets", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data),
-            });
+            })
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || "Erro ao criar ticket");
+                const errorData = (await response.json()) as { message?: string }
+                throw new Error(errorData.message || "Erro ao criar ticket")
             }
 
-            const createdTicket = await response.json();
-            toast.success("Ticket criado com sucesso!");
-            router.push(`/tickets/${createdTicket.id}`);
-        } catch (error: any) {
-            toast.error(error.message);
+            const createdTicket = (await response.json()) as { id: string }
+            toast.success("Ticket criado com sucesso!")
+            router.push(`/tickets/${createdTicket.id}`)
+        } catch (error) {
+            if (error instanceof Error) {
+                toast.error(error.message)
+            } else {
+                toast.error("Não foi possível criar o ticket")
+            }
         } finally {
-            setSubmitting(false);
+            setSubmitting(false)
         }
-    };
+    }
 
     return (
-        <div className="max-w-3xl mx-auto py-6">
+        <div className="mx-auto max-w-3xl py-6">
             <Card>
                 <CardHeader>
                     <CardTitle className="text-2xl">Novo Ticket</CardTitle>
@@ -90,11 +138,10 @@ export default function NewTicketPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-
                         <div className="space-y-2">
                             <Label htmlFor="title">Título</Label>
                             <Input id="title" placeholder="Descreva brevemente o problema..." {...register("title")} />
-                            {errors.title && <p className="text-red-500 text-sm">{errors.title.message}</p>}
+                            {errors.title && <p className="text-sm text-red-500">{errors.title.message}</p>}
                         </div>
 
                         <div className="space-y-2">
@@ -105,38 +152,42 @@ export default function NewTicketPage() {
                                 className="min-h-[120px]"
                                 {...register("description")}
                             />
-                            {errors.description && <p className="text-red-500 text-sm">{errors.description.message}</p>}
+                            {errors.description && <p className="text-sm text-red-500">{errors.description.message}</p>}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                             <div className="space-y-2">
-                                <Label htmlFor="status">Status Inicial</Label>
-                                <Select defaultValue="OPEN" onValueChange={(val: any) => setValue("status", val)}>
+                                <Label htmlFor="status">Status inicial</Label>
+                                <Select value={selectedStatus} onValueChange={handleStatusChange}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Status" />
+                                        <SelectValue>{(value) => getStatusLabel(value)}</SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="OPEN">Aberto</SelectItem>
-                                        <SelectItem value="IN_PROGRESS">Em Andamento</SelectItem>
-                                        <SelectItem value="DONE">Concluído</SelectItem>
+                                        {ticketStatusOptions.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
-                                {errors.status && <p className="text-red-500 text-sm">{errors.status.message}</p>}
+                                {errors.status && <p className="text-sm text-red-500">{errors.status.message}</p>}
                             </div>
 
                             <div className="space-y-2">
                                 <Label htmlFor="priority">Prioridade</Label>
-                                <Select defaultValue="MEDIUM" onValueChange={(val: any) => setValue("priority", val)}>
+                                <Select value={selectedPriority} onValueChange={handlePriorityChange}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Prioridade" />
+                                        <SelectValue>{(value) => getPriorityLabel(value)}</SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="LOW">Baixa</SelectItem>
-                                        <SelectItem value="MEDIUM">Média</SelectItem>
-                                        <SelectItem value="HIGH">Alta</SelectItem>
+                                        {ticketPriorityOptions.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
-                                {errors.priority && <p className="text-red-500 text-sm">{errors.priority.message}</p>}
+                                {errors.priority && <p className="text-sm text-red-500">{errors.priority.message}</p>}
                             </div>
                         </div>
 
@@ -146,23 +197,30 @@ export default function NewTicketPage() {
                                 id="tags"
                                 placeholder="ex: banco-de-dados, deploy, bug..."
                                 value={tagInput}
-                                onChange={(e) => setTagInput(e.target.value)}
+                                onChange={(event) => setTagInput(event.target.value)}
                                 onKeyDown={addTag}
                             />
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                {tags.map((tag: string) => (
-                                    <span key={tag} className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 text-sm px-2 py-1 rounded">
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                {tags.map((tag) => (
+                                    <span
+                                        key={tag}
+                                        className="flex items-center gap-1 rounded bg-zinc-100 px-2 py-1 text-sm dark:bg-zinc-800"
+                                    >
                                         {tag}
-                                        <button type="button" onClick={() => removeTag(tag)} className="text-zinc-500 hover:text-red-500">
+                                        <button
+                                            type="button"
+                                            onClick={() => removeTag(tag)}
+                                            className="text-zinc-500 hover:text-red-500"
+                                        >
                                             <X className="h-3 w-3" />
                                         </button>
                                     </span>
                                 ))}
                             </div>
-                            {errors.tags && <p className="text-red-500 text-sm">{errors.tags.message}</p>}
+                            {errors.tags && <p className="text-sm text-red-500">{errors.tags.message}</p>}
                         </div>
 
-                        <div className="pt-4 flex items-center justify-end gap-4 border-t">
+                        <div className="flex items-center justify-end gap-4 border-t pt-4">
                             <Button type="button" variant="outline" onClick={() => router.back()}>
                                 Cancelar
                             </Button>
@@ -174,5 +232,21 @@ export default function NewTicketPage() {
                 </CardContent>
             </Card>
         </div>
-    );
+    )
+}
+
+function getStatusLabel(value: string | null): string {
+    if (value && isTicketStatus(value)) {
+        return ticketStatusLabels[value]
+    }
+
+    return "Status"
+}
+
+function getPriorityLabel(value: string | null): string {
+    if (value && isTicketPriority(value)) {
+        return ticketPriorityLabels[value]
+    }
+
+    return "Prioridade"
 }

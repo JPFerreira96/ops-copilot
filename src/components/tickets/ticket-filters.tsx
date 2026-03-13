@@ -1,17 +1,28 @@
-"use client"
+﻿"use client"
 
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+    isTicketPriorityFilter,
+    isTicketStatusFilter,
+    ticketPriorityFilterLabels,
+    ticketPriorityOptions,
+    TicketPriorityFilter,
+    ticketStatusFilterLabels,
+    ticketStatusOptions,
+    TicketStatusFilter,
+} from "@/lib/ticket-meta"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export function TicketFilters() {
     const router = useRouter()
     const searchParams = useSearchParams()
 
     const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "")
+    const selectedStatus = getStatusFilter(searchParams.get("status"))
+    const selectedPriority = getPriorityFilter(searchParams.get("priority"))
 
-    // Debounce search
     useEffect(() => {
         const handler = setTimeout(() => {
             const current = new URLSearchParams(Array.from(searchParams.entries()))
@@ -20,7 +31,7 @@ export function TicketFilters() {
             } else {
                 current.delete("q")
             }
-            current.set("page", "1") // reset to page 1 on search
+            current.set("page", "1")
             router.push(`/?${current.toString()}`)
         }, 300)
 
@@ -50,43 +61,57 @@ export function TicketFilters() {
     }
 
     return (
-        <div className="flex flex-col gap-4 sm:flex-row mb-6">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row">
             <Input
                 placeholder="Buscar tickets..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-xs"
+                className="w-full sm:max-w-sm"
             />
 
-            <Select
-                defaultValue={searchParams.get("status") || "ALL"}
-                onValueChange={handleStatusChange}
-            >
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Status" />
+            <Select value={selectedStatus} onValueChange={handleStatusChange}>
+                <SelectTrigger className="w-full sm:w-[220px]">
+                    <SelectValue>{(value) => ticketStatusFilterLabels[getStatusFilter(value)]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="ALL">Todos os Status</SelectItem>
-                    <SelectItem value="OPEN">Aberto</SelectItem>
-                    <SelectItem value="IN_PROGRESS">Em Andamento</SelectItem>
-                    <SelectItem value="DONE">Concluído</SelectItem>
+                    <SelectItem value="ALL">{ticketStatusFilterLabels.ALL}</SelectItem>
+                    {ticketStatusOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                        </SelectItem>
+                    ))}
                 </SelectContent>
             </Select>
 
-            <Select
-                defaultValue={searchParams.get("priority") || "ALL"}
-                onValueChange={handlePriorityChange}
-            >
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Prioridade" />
+            <Select value={selectedPriority} onValueChange={handlePriorityChange}>
+                <SelectTrigger className="w-full sm:w-[220px]">
+                    <SelectValue>{(value) => ticketPriorityFilterLabels[getPriorityFilter(value)]}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="ALL">Todas Prioridades</SelectItem>
-                    <SelectItem value="LOW">Baixa</SelectItem>
-                    <SelectItem value="MEDIUM">Média</SelectItem>
-                    <SelectItem value="HIGH">Alta</SelectItem>
+                    <SelectItem value="ALL">{ticketPriorityFilterLabels.ALL}</SelectItem>
+                    {ticketPriorityOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                        </SelectItem>
+                    ))}
                 </SelectContent>
             </Select>
         </div>
     )
+}
+
+function getStatusFilter(value: string | null): TicketStatusFilter {
+    if (!value || !isTicketStatusFilter(value)) {
+        return "ALL"
+    }
+
+    return value
+}
+
+function getPriorityFilter(value: string | null): TicketPriorityFilter {
+    if (!value || !isTicketPriorityFilter(value)) {
+        return "ALL"
+    }
+
+    return value
 }
