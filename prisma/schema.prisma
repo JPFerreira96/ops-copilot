@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  title       String   @db.VarChar(150)
+  description String   @db.Text
+  status      Status   @default(OPEN)
+  priority    Priority @default(MEDIUM)
+  tags        String[] // máximo 5 tags
+
+  // Campos de cache da IA (obrigatórios no schema)
+  aiSummary    String?
+  aiNextSteps  Json?     // array de strings
+  aiRiskLevel  RiskLevel?
+  aiCategories Json?     // array de strings
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tickets")
+}
+
+enum Status {
+  OPEN
+  IN_PROGRESS
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
