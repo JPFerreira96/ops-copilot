@@ -1,6 +1,7 @@
 ﻿"use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
+import type { KeyboardEvent } from "react"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 
@@ -13,12 +14,12 @@ import { Textarea } from "@/components/ui/textarea"
 import {
     isTicketPriority,
     isTicketStatus,
+    ticketPriorityFormOptions,
     ticketPriorityLabels,
-    ticketPriorityOptions,
+    ticketStatusFormOptions,
     ticketStatusLabels,
-    ticketStatusOptions,
 } from "@/lib/ticket-meta"
-import { ticketSchema } from "@/lib/validations/ticket"
+import { TicketFormInputValues, ticketSchema } from "@/lib/validations/ticket"
 import { X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -34,7 +35,7 @@ export default function NewTicketPage() {
         formState: { errors },
         setValue,
         watch,
-    } = useForm({
+    } = useForm<TicketFormInputValues>({
         resolver: zodResolver(ticketSchema),
         defaultValues: {
             title: "",
@@ -46,10 +47,10 @@ export default function NewTicketPage() {
     })
 
     const tags = watch("tags") || []
-    const selectedStatus = watch("status")
-    const selectedPriority = watch("priority")
+    const selectedStatus = watch("status") ?? "OPEN"
+    const selectedPriority = watch("priority") ?? "MEDIUM"
 
-    const addTag = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    const addTag = (event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key !== "Enter" && event.key !== ",") {
             return
         }
@@ -57,13 +58,13 @@ export default function NewTicketPage() {
         event.preventDefault()
         const newTag = tagInput.trim()
 
-        if (newTag.length < 3 || newTag.length > 20) {
-            toast.error("A tag deve ter entre 3 e 20 caracteres.")
+        if (newTag.length < 2 || newTag.length > 30) {
+            toast.error("A tag deve ter entre 2 e 30 caracteres.")
             return
         }
 
-        if (tags.length >= 5) {
-            toast.error("Máximo de 5 tags permitidas.")
+        if (tags.length >= 10) {
+            toast.error("Maximo de 10 tags permitidas.")
             return
         }
 
@@ -100,7 +101,7 @@ export default function NewTicketPage() {
         setValue("priority", value, { shouldValidate: true, shouldDirty: true })
     }
 
-    const onSubmit = async (data: unknown) => {
+    const onSubmit = async (data: TicketFormInputValues) => {
         setSubmitting(true)
 
         try {
@@ -111,8 +112,8 @@ export default function NewTicketPage() {
             })
 
             if (!response.ok) {
-                const errorData = (await response.json()) as { message?: string }
-                throw new Error(errorData.message || "Erro ao criar ticket")
+                const errorData = (await response.json()) as { error?: string }
+                throw new Error(errorData.error || "Erro ao criar ticket")
             }
 
             const createdTicket = (await response.json()) as { id: string }
@@ -160,10 +161,10 @@ export default function NewTicketPage() {
                                 <Label htmlFor="status">Status inicial</Label>
                                 <Select value={selectedStatus} onValueChange={handleStatusChange}>
                                     <SelectTrigger>
-                                        <SelectValue>{(value) => getStatusLabel(value)}</SelectValue>
+                                        <SelectValue placeholder={getStatusLabel(selectedStatus)} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {ticketStatusOptions.map((option) => (
+                                        {ticketStatusFormOptions.map((option) => (
                                             <SelectItem key={option.value} value={option.value}>
                                                 {option.label}
                                             </SelectItem>
@@ -177,10 +178,10 @@ export default function NewTicketPage() {
                                 <Label htmlFor="priority">Prioridade</Label>
                                 <Select value={selectedPriority} onValueChange={handlePriorityChange}>
                                     <SelectTrigger>
-                                        <SelectValue>{(value) => getPriorityLabel(value)}</SelectValue>
+                                        <SelectValue placeholder={getPriorityLabel(selectedPriority)} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {ticketPriorityOptions.map((option) => (
+                                        {ticketPriorityFormOptions.map((option) => (
                                             <SelectItem key={option.value} value={option.value}>
                                                 {option.label}
                                             </SelectItem>

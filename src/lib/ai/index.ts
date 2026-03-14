@@ -1,135 +1,156 @@
-import OpenAI from 'openai';
-import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
+import OpenAI from "openai"
+import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai"
 
 export interface AIResponse {
-    summary: string;
-    nextSteps: string[];
-    riskLevel: 'low' | 'medium' | 'high';
-    categories: string[];
+  summary: string
+  nextSteps: string[]
+  riskLevel: "low" | "medium" | "high"
+  categories: string[]
 }
 
 export interface AIProvider {
-    generateSummary(input: { title: string; description: string }): Promise<AIResponse>;
+  generateSummary(input: { title: string; description: string }): Promise<AIResponse>
 }
 
 export class GeminiProvider implements AIProvider {
-    private genAI: GoogleGenerativeAI;
-    private model: GenerativeModel;
+  private genAI: GoogleGenerativeAI
+  private model: GenerativeModel
 
-    constructor() {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
-        this.genAI = new GoogleGenerativeAI(apiKey);
-        this.model = this.genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
-            generationConfig: {
-                responseMimeType: "application/json",
-            }
-        });
-    }
+  constructor() {
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) throw new Error("GEMINI_API_KEY ausente")
 
-    async generateSummary(input: { title: string; description: string }): Promise<AIResponse> {
-        const prompt = `
-      Você é um assistente de DevOps/Suporte especializado. Analise o título e a descrição do ticket fornecidos abaixo.
-      Retorne um JSON estrito com o seguinte formato exato:
-      {
-        "summary": "string (resumo de 3-6 linhas, máx 320 caracteres)",
-        "nextSteps": ["• Passo 1", "• Passo 2", "..."], // 3 a 7 bullets começando com •
-        "riskLevel": "low" | "medium" | "high",
-        "categories": ["bug", "incident", "feature", "maintenance"] // escolha as categorias mais relevantes
-      }
+    this.genAI = new GoogleGenerativeAI(apiKey)
+    this.model = this.genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
+    })
+  }
 
-      Título: ${input.title}
-      Descrição: ${input.description}
-    `;
-
-        const result = await this.model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-
-        try {
-            return JSON.parse(text) as AIResponse;
-        } catch {
-            throw new Error("Failed to parse AI response JSON");
-        }
-    }
+  async generateSummary(input: { title: string; description: string }): Promise<AIResponse> {
+    const prompt = `
+Voce e um assistente de DevOps/Suporte.
+Analise o titulo e a descricao do ticket.
+Retorne JSON estrito com:
+{
+  "summary": "3 a 6 linhas",
+  "nextSteps": ["3 a 7 itens"],
+  "riskLevel": "low|medium|high",
+  "categories": ["tags de classificacao"]
 }
 
-export class MockAIProvider implements AIProvider {
-    // Este mock é usado quando nao existe chave real de IA no ambiente.
-    // Assim eu consigo demonstrar o fluxo de IA no projeto sem depender de API externa.
-    async generateSummary(input: { title: string; description: string }): Promise<AIResponse> {
-        // Simulando latencia de rede
-        await new Promise(resolve => setTimeout(resolve, 800));
+Titulo: ${input.title}
+Descricao: ${input.description}
+`
 
-        return {
-            summary: `This is a simulated AI summary for "${input.title}". The issue described appears to be a standard operational request that needs support team review.`,
-            nextSteps: [
-                "• Review the reported issue details.",
-                "• Assign a technician if necessary.",
-                "• Communicate progress to the reporter."
-            ],
-            riskLevel: "low",
-            categories: ["maintenance", "mocked"]
-        };
+    const result = await this.model.generateContent(prompt)
+    const text = result.response.text()
+
+    try {
+      return JSON.parse(text) as AIResponse
+    } catch {
+      throw new Error("Falha ao parsear resposta do Gemini")
     }
+  }
 }
 
 export class OpenAIProvider implements AIProvider {
-    private openai: OpenAI;
+  private openai: OpenAI
 
-    constructor() {
-        this.openai = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY,
-        });
+  constructor() {
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) throw new Error("OPENAI_API_KEY ausente")
+
+    this.openai = new OpenAI({ apiKey })
+  }
+
+  async generateSummary(input: { title: string; description: string }): Promise<AIResponse> {
+    const response = await this.openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Retorne apenas JSON com summary (3-6 linhas), nextSteps (3-7 itens), riskLevel (low|medium|high), categories (array).",
+        },
+        {
+          role: "user",
+          content: `Titulo: ${input.title}\nDescricao: ${input.description}`,
+        },
+      ],
+    })
+
+    const content = response.choices[0]?.message.content
+    if (!content) {
+      throw new Error("Resposta vazia da OpenAI")
     }
 
-    async generateSummary(input: { title: string; description: string }): Promise<AIResponse> {
-        const systemPrompt = `
-      Você é um assistente de DevOps/Suporte. Analise o título e a descrição do ticket.
-      Retorne um JSON estrito com o seguinte formato:
-      {
-        "summary": "string (resumo de 3-6 linhas, máx 320 caracteres)",
-        "nextSteps": ["• Passo 1", "• Passo 2", "..."], // 3 a 7 bullets
-        "riskLevel": "low" | "medium" | "high",
-        "categories": ["bug", "incident", "feature", "maintenance"] // escolha as categorias mais relevantes
-      }
-    `;
-
-        const response = await this.openai.chat.completions.create({
-            model: "gpt-4o-mini", // fallback fast model
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: `Título: ${input.title}\nDescrição: ${input.description}` }
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.3,
-        });
-
-        const content = response.choices[0]?.message.content;
-        if (!content) {
-            throw new Error("Failed to generate AI response");
-        }
-
-        try {
-            const parsed = JSON.parse(content) as AIResponse;
-            return parsed;
-        } catch {
-            throw new Error("Failed to parse AI response JSON");
-        }
+    try {
+      return JSON.parse(content) as AIResponse
+    } catch {
+      throw new Error("Falha ao parsear resposta da OpenAI")
     }
+  }
+}
+
+export class RealAIProvider implements AIProvider {
+  private provider: AIProvider
+
+  constructor() {
+    if (process.env.GEMINI_API_KEY) {
+      this.provider = new GeminiProvider()
+      return
+    }
+
+    if (process.env.OPENAI_API_KEY) {
+      this.provider = new OpenAIProvider()
+      return
+    }
+
+    throw new Error("Nenhuma chave de IA real configurada")
+  }
+
+  async generateSummary(input: { title: string; description: string }): Promise<AIResponse> {
+    return this.provider.generateSummary(input)
+  }
+}
+
+export class MockAIProvider implements AIProvider {
+  async generateSummary(input: { title: string; description: string }): Promise<AIResponse> {
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    const title = input.title.toLowerCase()
+    const riskLevel: AIResponse["riskLevel"] = title.includes("indispon") || title.includes("falha") ? "high" : "medium"
+
+    return {
+      summary: [
+        "Ticket analisado em modo mock.",
+        "O problema indica impacto operacional e precisa de triagem inicial.",
+        "Recomenda-se validacao de causa raiz e acompanhamento ate estabilizacao.",
+      ].join("\n"),
+      nextSteps: [
+        "Validar escopo e impacto com o solicitante.",
+        "Priorizar atendimento conforme risco identificado.",
+        "Executar checklist tecnico inicial e registrar evidencias.",
+      ],
+      riskLevel,
+      categories: riskLevel === "high" ? ["incident", "bug", "operations"] : ["incident", "operations", "support"],
+    }
+  }
+}
+
+export function isMockMode(): boolean {
+  return !process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY
 }
 
 export function getAIProvider(): AIProvider {
-    // Regra de fallback:
-    // 1) Se eu tiver GEMINI_API_KEY, uso Gemini.
-    // 2) Se nao tiver Gemini e eu tiver OPENAI_API_KEY, uso OpenAI.
-    // 3) Se nao tiver nenhuma chave, uso MockAIProvider.
-    if (process.env.GEMINI_API_KEY) {
-        return new GeminiProvider();
-    }
-    if (process.env.OPENAI_API_KEY) {
-        return new OpenAIProvider();
-    }
-    return new MockAIProvider();
+  if (isMockMode()) {
+    return new MockAIProvider()
+  }
+
+  return new RealAIProvider()
 }

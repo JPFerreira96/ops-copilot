@@ -1,7 +1,7 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
-import { PrismaClient } from "@prisma/client"
 import bcrypt from "bcryptjs"
+import prisma from "@/lib/prisma"
 
 
 
@@ -16,7 +16,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             authorize: async (credentials) => {
                 if (!credentials?.email || !credentials?.password) return null
 
-                const prisma = new PrismaClient()
                 const user = await prisma.user.findUnique({
                     where: { email: credentials.email as string }
                 })
@@ -56,7 +55,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
 
             if (isLoggedIn && isOnLogin) {
-                return Response.redirect(new URL('/', nextUrl));
+                return Response.redirect(new URL('/tickets', nextUrl));
             }
 
             return true;

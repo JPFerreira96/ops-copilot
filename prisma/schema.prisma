@@ -3,34 +3,39 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Ticket {
   id          String   @id @default(cuid())
-  title       String   
-  description String   
-  status      String   @default("OPEN")
-  priority    String   @default("MEDIUM")
-  tags        String   // stored as JSON string to support array in SQLite
-
-  // Campos de cache da IA (obrigatórios no schema)
-  aiSummary    String?
-  aiNextSteps  String?   // stored as JSON string
-  aiRiskLevel  String?
-  aiCategories String?   // stored as JSON string
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  title       String   @db.VarChar(150)
+  description String   @db.Text
+  status      Status   @default(OPEN)
+  priority    Priority @default(MEDIUM)
+  tags        String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("tickets")
+}
+
+enum Status {
+  OPEN
+  IN_PROGRESS
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  password  String   // Hash da senha
+  password  String
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

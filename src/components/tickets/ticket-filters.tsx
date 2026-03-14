@@ -1,117 +1,144 @@
-﻿"use client"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-    isTicketPriorityFilter,
-    isTicketStatusFilter,
-    ticketPriorityFilterLabels,
-    ticketPriorityOptions,
-    TicketPriorityFilter,
-    ticketStatusFilterLabels,
-    ticketStatusOptions,
-    TicketStatusFilter,
+  isTicketPriorityQuery,
+  isTicketStatusQuery,
+  ticketPriorityFilterLabels,
+  ticketPriorityOptions,
+  TicketPriorityFilter,
+  ticketStatusFilterLabels,
+  ticketStatusOptions,
+  TicketStatusFilter,
 } from "@/lib/ticket-meta"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
 
 export function TicketFilters() {
-    const router = useRouter()
-    const searchParams = useSearchParams()
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
-    const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "")
-    const selectedStatus = getStatusFilter(searchParams.get("status"))
-    const selectedPriority = getPriorityFilter(searchParams.get("priority"))
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search") || "")
+  const [tagsTerm, setTagsTerm] = useState(searchParams.get("tags") || "")
+  const selectedStatus = getStatusFilter(searchParams.get("status"))
+  const selectedPriority = getPriorityFilter(searchParams.get("priority"))
 
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            const current = new URLSearchParams(Array.from(searchParams.entries()))
-            if (searchTerm) {
-                current.set("q", searchTerm)
-            } else {
-                current.delete("q")
-            }
-            current.set("page", "1")
-            router.push(`/?${current.toString()}`)
-        }, 300)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()))
 
-        return () => clearTimeout(handler)
-    }, [searchTerm, router, searchParams])
+      if (searchTerm.trim()) {
+        current.set("search", searchTerm.trim())
+      } else {
+        current.delete("search")
+      }
 
-    const handleStatusChange = (value: string | null) => {
-        const current = new URLSearchParams(Array.from(searchParams.entries()))
-        if (value && value !== "ALL") {
-            current.set("status", value)
-        } else {
-            current.delete("status")
-        }
-        current.set("page", "1")
-        router.push(`/?${current.toString()}`)
+      if (tagsTerm.trim()) {
+        current.set("tags", normalizeTags(tagsTerm))
+      } else {
+        current.delete("tags")
+      }
+
+      current.set("page", "1")
+      router.push(`/tickets?${current.toString()}`)
+    }, 350)
+
+    return () => clearTimeout(handler)
+  }, [searchTerm, tagsTerm, router, searchParams])
+
+  const handleStatusChange = (value: string | null) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()))
+
+    if (value && value !== "all") {
+      current.set("status", value)
+    } else {
+      current.delete("status")
     }
 
-    const handlePriorityChange = (value: string | null) => {
-        const current = new URLSearchParams(Array.from(searchParams.entries()))
-        if (value && value !== "ALL") {
-            current.set("priority", value)
-        } else {
-            current.delete("priority")
-        }
-        current.set("page", "1")
-        router.push(`/?${current.toString()}`)
+    current.set("page", "1")
+    router.push(`/tickets?${current.toString()}`)
+  }
+
+  const handlePriorityChange = (value: string | null) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()))
+
+    if (value && value !== "all") {
+      current.set("priority", value)
+    } else {
+      current.delete("priority")
     }
 
-    return (
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row">
-            <Input
-                placeholder="Buscar tickets..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:max-w-sm"
-            />
+    current.set("page", "1")
+    router.push(`/tickets?${current.toString()}`)
+  }
 
-            <Select value={selectedStatus} onValueChange={handleStatusChange}>
-                <SelectTrigger className="w-full sm:w-[220px]">
-                    <SelectValue>{(value) => ticketStatusFilterLabels[getStatusFilter(value)]}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="ALL">{ticketStatusFilterLabels.ALL}</SelectItem>
-                    {ticketStatusOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+  return (
+    <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Input
+        placeholder="Buscar por titulo ou descricao"
+        value={searchTerm}
+        onChange={(event) => setSearchTerm(event.target.value)}
+      />
 
-            <Select value={selectedPriority} onValueChange={handlePriorityChange}>
-                <SelectTrigger className="w-full sm:w-[220px]">
-                    <SelectValue>{(value) => ticketPriorityFilterLabels[getPriorityFilter(value)]}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="ALL">{ticketPriorityFilterLabels.ALL}</SelectItem>
-                    {ticketPriorityOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
-    )
+      <Input
+        placeholder="Tags (ex: bug,incident)"
+        value={tagsTerm}
+        onChange={(event) => setTagsTerm(event.target.value)}
+      />
+
+      <Select value={selectedStatus} onValueChange={handleStatusChange}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder={ticketStatusFilterLabels.all} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">{ticketStatusFilterLabels.all}</SelectItem>
+          {ticketStatusOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={selectedPriority} onValueChange={handlePriorityChange}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder={ticketPriorityFilterLabels.all} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">{ticketPriorityFilterLabels.all}</SelectItem>
+          {ticketPriorityOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+function normalizeTags(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join(",")
 }
 
 function getStatusFilter(value: string | null): TicketStatusFilter {
-    if (!value || !isTicketStatusFilter(value)) {
-        return "ALL"
-    }
+  if (!value || !isTicketStatusQuery(value)) {
+    return "all"
+  }
 
-    return value
+  return value
 }
 
 function getPriorityFilter(value: string | null): TicketPriorityFilter {
-    if (!value || !isTicketPriorityFilter(value)) {
-        return "ALL"
-    }
+  if (!value || !isTicketPriorityQuery(value)) {
+    return "all"
+  }
 
-    return value
+  return value
 }
