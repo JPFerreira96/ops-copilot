@@ -1,14 +1,23 @@
-import Header from "@/components/layout/header";
+import { redirect } from "next/navigation"
 
-export default function MainLayout({
-    children,
+import { auth } from "@/auth"
+import Header from "@/components/layout/header"
+
+export default async function MainLayout({
+  children,
 }: {
-    children: React.ReactNode;
+  children: React.ReactNode
 }) {
-    return (
-        <div className="flex min-h-screen flex-col">
-            <Header />
-            <main className="flex-1 p-6 container mx-auto">{children}</main>
-        </div>
-    );
+  const session = await auth()
+
+  if (!session?.user?.email) {
+    redirect("/login")
+  }
+
+  return (
+    <div className="flex min-h-screen flex-col">
+      <Header />
+      <main className="container mx-auto flex-1 p-6">{children}</main>
+    </div>
+  )
 }
