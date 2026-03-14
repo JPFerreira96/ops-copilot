@@ -26,7 +26,7 @@ Funcionalidades implementadas:
 - `/tickets/[id]/edit`
 
 ### URL do sistema em produção
-- `https://ops-copilot-40ipz9i8j-julio-paulos-projects.vercel.app`
+- `https://ops-copilot-git-master-julio-paulos-projects.vercel.app/`
 
 ## Stack tecnica
 | Camada | Tecnologia | Versão |
