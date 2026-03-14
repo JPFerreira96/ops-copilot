@@ -64,14 +64,21 @@ export async function POST(request: NextRequest) {
     const provider = getAIProvider()
     let result = await provider.generateSummary({ title, description: enrichedDescription })
 
-    const parsedResult = aiResponseSchema.safeParse(result)
+    let parsedResult = aiResponseSchema.safeParse(result)
     if (!parsedResult.success) {
-      console.warn("[api/ai/summarize POST] Provider retornou formato invalido, usando mock fallback")
-      const mockProvider = new MockAIProvider()
-      result = await mockProvider.generateSummary({ title, description })
+      console.warn("[api/ai/summarize POST] Provider retornou formato invalido, tentando normalizar", parsedResult.error.flatten())
+      result = normalizeProviderResult(result)
+      parsedResult = aiResponseSchema.safeParse(result)
     }
 
-    const output = aiResponseSchema.parse(result)
+    if (!parsedResult.success) {
+      console.warn("[api/ai/summarize POST] Falha apos normalizacao, usando mock fallback", parsedResult.error.flatten())
+      const mockProvider = new MockAIProvider()
+      result = await mockProvider.generateSummary({ title, description })
+      parsedResult = aiResponseSchema.safeParse(result)
+    }
+
+    const output = parsedResult.success ? parsedResult.data : aiResponseSchema.parse(result)
 
     if (input.ticketId) {
       aiCache.set(input.ticketId, {
@@ -106,6 +113,121 @@ function checkRateLimit(key: string): boolean {
 
   current.count += 1
   return true
+}
+
+function normalizeProviderResult(raw: unknown) {
+  const value = parseRawResult(raw)
+  const summary = normalizeSummary(value.summary)
+  const nextSteps = normalizeNextSteps(value.nextSteps)
+  const riskLevel = normalizeRiskLevel(value.riskLevel)
+  const categories = normalizeCategories(value.categories, riskLevel)
+
+  return { summary, nextSteps, riskLevel, categories }
+}
+
+function parseRawResult(raw: unknown): Record<string, unknown> {
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === "object") {
+        return parsed as Record<string, unknown>
+      }
+    } catch {
+      return { summary: raw }
+    }
+  }
+
+  if (raw && typeof raw === "object") {
+    return raw as Record<string, unknown>
+  }
+
+  return {}
+}
+
+function normalizeSummary(input: unknown): string {
+  if (Array.isArray(input)) {
+    input = input.filter((item) => typeof item === "string").join("\n")
+  }
+
+  const text = typeof input === "string" ? input : "Resumo gerado a partir da analise do ticket."
+  let lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length < 3) {
+    lines = text
+      .split(/(?<=[.!?])\s+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+  }
+
+  if (lines.length < 3) {
+    lines = [
+      text.trim() || "Ticket analisado pela IA.",
+      "O incidente indica impacto operacional e exige triagem.",
+      "Recomenda-se acao coordenada para estabilizacao.",
+    ]
+  }
+
+  return lines.slice(0, 6).join("\n")
+}
+
+function normalizeNextSteps(input: unknown): string[] {
+  let steps: string[] = []
+
+  if (Array.isArray(input)) {
+    steps = input.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)
+  } else if (typeof input === "string") {
+    steps = input
+      .split(/\r?\n|;|•|- /)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+
+  if (steps.length < 3) {
+    steps = [
+      "Validar escopo e impacto com o solicitante.",
+      "Priorizar atendimento conforme risco identificado.",
+      "Executar checklist tecnico inicial e registrar evidencias.",
+    ]
+  }
+
+  return steps.slice(0, 7)
+}
+
+function normalizeRiskLevel(input: unknown): "low" | "medium" | "high" {
+  if (typeof input !== "string") {
+    return "medium"
+  }
+
+  const value = input.toLowerCase().trim()
+  if (value === "low" || value === "medium" || value === "high") {
+    return value
+  }
+
+  if (value.includes("alto") || value.includes("high")) return "high"
+  if (value.includes("baixo") || value.includes("low")) return "low"
+  return "medium"
+}
+
+function normalizeCategories(input: unknown, riskLevel: "low" | "medium" | "high"): string[] {
+  let categories: string[] = []
+
+  if (Array.isArray(input)) {
+    categories = input.filter((item): item is string => typeof item === "string").map((item) => item.trim().toLowerCase()).filter(Boolean)
+  } else if (typeof input === "string") {
+    categories = input
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean)
+  }
+
+  if (categories.length === 0) {
+    return riskLevel === "high" ? ["incident", "bug", "operations"] : ["incident", "operations", "support"]
+  }
+
+  return Array.from(new Set(categories)).slice(0, 8)
 }
 
 async function enrichWithSimilarTickets(title: string, description: string, currentTicketId?: string) {
