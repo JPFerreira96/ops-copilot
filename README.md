@@ -1,175 +1,211 @@
 # Ops Copilot - Teste Tecnico Full-Stack
 
-## Visao do Produto
-Ops Copilot e um mini sistema interno de Operations para registrar incidentes e tarefas em formato de ticket.
-A aplicacao entrega:
-- criacao, listagem, filtro, busca e edicao de tickets
-- pagina de detalhe com secao de IA
-- resumo inteligente com proximos passos, nivel de risco e categorias
+## Visao geral do produto
+Ops Copilot e um mini sistema para operacoes internas, com foco em registro de incidentes e tarefas via tickets, incluindo suporte de IA para resumo e proximos passos.
+
+Funcionalidades implementadas:
+- criacao de ticket
+- listagem de tickets
+- busca por titulo e descricao
+- filtros por status, prioridade e tags
+- paginacao
+- tela de detalhe do ticket
+- edicao de ticket
 - autenticacao com rotas protegidas
+- resumo com IA (real ou mock fallback)
 
 ### Credenciais de teste
 - Email: `admin@opscopilot.com`
 - Senha: `123456`
 
-### Telas principais
-- `/tickets` - lista de tickets com busca, filtros e paginacao
-- `/tickets/new` - criacao de novo ticket
-- `/tickets/[id]` - detalhe do ticket + secao de IA
-- `/login` - login com credenciais
+### Rotas principais da aplicacao
+- `/login`
+- `/tickets`
+- `/tickets/new`
+- `/tickets/[id]`
+- `/tickets/[id]/edit`
 
-### Stack e versoes do projeto
+## Stack tecnica
 | Camada | Tecnologia | Versao |
 |---|---|---|
 | Framework | Next.js (App Router) | `16.1.6` |
 | UI | React | `19.2.3` |
 | Linguagem | TypeScript | `^5` (strict = true) |
 | Estilo | Tailwind CSS | `^4` |
-| Componentes | shadcn/ui gerado no projeto | CLI `^4.0.6` |
-| Base dos componentes gerados | `@base-ui/react` | `^1.3.0` |
+| Componentes | shadcn/ui | CLI `^4.0.6` |
 | Auth | NextAuth (Credentials) | `^5.0.0-beta.30` |
 | ORM | Prisma | `6.19.2` |
-| Banco principal | PostgreSQL | `postgres:15` (Docker Compose) |
+| Banco | PostgreSQL | `postgres:15` |
 | Validacao | Zod | `^4.3.6` |
-| Forms | React Hook Form | `^7.71.2` |
-| IA SDK | OpenAI + Gemini | `^6.27.0` / `^0.24.1` |
+| Formulario | React Hook Form | `^7.71.2` |
+| IA | OpenAI + Gemini | `^6.27.0` / `^0.24.1` |
 | Testes | Vitest | `^4.1.0` |
 
 ## Arquitetura
 - Frontend e backend no mesmo projeto Next.js.
-- Backend via Route Handlers em `src/app/api/*`.
-- Persistencia via Prisma + PostgreSQL.
-- Auth com NextAuth Credentials e middleware.
-- IA com interface `AIProvider`, implementacao real (`RealAIProvider`) e fallback (`MockAIProvider`).
+- Backend implementado com Route Handlers em `src/app/api/*`.
+- Persistencia com Prisma + PostgreSQL.
+- Auth com NextAuth Credentials + middleware.
+- IA com interface `AIProvider`, provider real e fallback mock.
 
 ```mermaid
-graph TD
-    User[Usuario]
-
-    subgraph Frontend
-      Pages[Pages /tickets /tickets/new /tickets/[id] /login]
-      Components[Componentes UI + Forms]
-    end
-
-    subgraph Backend
-      TicketsAPI[/api/tickets + /api/tickets/[id]]
-      AIAPI[/api/ai/summarize]
-      AuthAPI[/api/auth/[...nextauth]]
-    end
-
-    subgraph Core
-      Auth[NextAuth + middleware]
-      Validation[Zod]
-      AIProvider[RealAIProvider ou MockAIProvider]
-      RateLimit[Rate limit 10 req/min por usuario]
-      AICache[Cache in-memory 24h por ticketId]
-    end
-
-    subgraph Data
-      Prisma[Prisma Client]
-      Postgres[(PostgreSQL)]
-    end
-
-    User --> Pages
-    Pages --> Components
-    Components --> TicketsAPI
-    Components --> AIAPI
-    Pages --> Auth
-    TicketsAPI --> Validation
-    AIAPI --> Validation
-    TicketsAPI --> Prisma
-    AIAPI --> Prisma
-    Prisma --> Postgres
-    AIAPI --> AIProvider
-    AIAPI --> RateLimit
-    AIAPI --> AICache
-    AuthAPI --> Auth
+flowchart TD
+    user[Usuario] --> ui[Telas Next.js]
+    ui --> auth[NextAuth Credentials]
+    ui --> api[Route Handlers API]
+    api --> val[Validacao Zod]
+    api --> prisma[Prisma Client]
+    prisma --> db[(PostgreSQL)]
+    api --> ai[AIProvider]
+    api --> rate[Rate limit 10 req por minuto por usuario]
+    api --> cache[Cache em memoria 24h por ticket]
 ```
 
-## Decisoes Tecnicas e Trade-offs
-- Banco em PostgreSQL: o schema oficial exige `tags String[]`, enums e tipos `@db` que funcionam melhor no Postgres.
-- Auth com NextAuth Credentials: simplifica protecao de pagina e API usando middleware unico.
-- Padrao de erro unico na API: `{ success: false, error: string, code?: string }` para facilitar frontend e debug.
-- Fallback de IA: quando nao existe chave real, entra automaticamente no `MockAIProvider` e a UI mostra banner de `Modo Mock`.
-- `@base-ui/react` aparece no projeto porque os componentes gerados pelo fluxo atual do shadcn usam essa base internamente.
+## Fluxos funcionais (Mermaid)
+### 1) Fluxo de login e protecao
+```mermaid
+flowchart LR
+    u[Usuario] --> login[Tela login]
+    login --> signin[Sign in credentials]
+    signin --> authz[Authorize no NextAuth]
+    authz --> users[(Tabela users)]
+    users --> authz
+    authz -->|sucesso| tickets[Tela tickets]
+    authz -->|falha| login
+```
+
+### 2) Fluxo de tickets (listar, criar, editar)
+```mermaid
+flowchart TD
+    ui[Tela tickets e formulario] --> listApi[GET api tickets]
+    ui --> createApi[POST api tickets]
+    ui --> updateApi[PATCH api tickets por id]
+    listApi --> prisma[Prisma]
+    createApi --> prisma
+    updateApi --> prisma
+    prisma --> ticketsDb[(Tabela tickets)]
+```
+
+### 3) Fluxo de IA (resumo e fallback)
+```mermaid
+flowchart TD
+    detail[Tela detalhe do ticket] --> call[POST api ai summarize]
+    call --> input[Entrada ticketId ou titulo descricao]
+    input --> enrich[Enriquecimento com tickets semelhantes]
+    enrich --> provider[Selecao de provider]
+    provider -->|com chave| real[GeminiProvider ou OpenAIProvider]
+    provider -->|sem chave| mock[MockAIProvider]
+    real --> normalize[Validacao e normalizacao da resposta]
+    mock --> normalize
+    normalize --> cache[Cache por ticketId 24h]
+    cache --> output[summary nextSteps riskLevel categories]
+```
+
+## Requisitos do teste tecnico atendidos
+### Dominio Ticket
+- `id`
+- `title`
+- `description`
+- `status` (`OPEN | IN_PROGRESS | DONE`)
+- `priority` (`LOW | MEDIUM | HIGH`)
+- `tags` (`string[]`)
+- `createdAt`
+- `updatedAt`
+
+### API de IA obrigatoria
+- Endpoint: `POST /api/ai/summarize`
+- Entrada: `ticketId` ou `{ title, description }`
+- Saida: `summary`, `nextSteps`, `riskLevel`, `categories`
+- Contrato: `AIProvider.generateSummary(input): Promise<AIResponse>`
+- Fallback sem chave: `MockAIProvider`
+- Cache por `ticketId`: implementado em memoria com TTL de 24h
+
+### Autenticacao obrigatoria
+- Implementada com NextAuth Credentials.
+- Rotas de criacao e edicao de tickets protegidas por sessao.
+
+### Extras implementados
+- edicao de ticket
+- mudanca de status
+- rate limit no endpoint de IA
+
+## Decisoes tecnicas
+- PostgreSQL foi escolhido para suportar melhor enums e `String[]` no schema do ticket.
+- NextAuth Credentials simplifica protecao de UI e API com uma estrategia unica.
+- Validacao com Zod no frontend e backend para manter contrato consistente.
+- Fallback mock garante funcionalidade mesmo sem chave de IA configurada.
+
+## Variaveis de ambiente
+Use `.env.example` como base:
+- `DATABASE_URL`
+- `NEXTAUTH_SECRET`
+- `NEXTAUTH_URL`
+- `OPENAI_API_KEY` (opcional)
+- `GEMINI_API_KEY` (opcional)
 
 ## Como rodar localmente
-### Opcao 1 - Docker Compose (recomendado)
+### Opcao A - Docker Compose
 1. Copie `.env.example` para `.env`.
-2. Suba os servicos:
+2. Execute:
 ```bash
 docker compose up --build
 ```
 3. Acesse `http://localhost:3000`.
 
-### Opcao 2 - Local sem Docker
+### Opcao B - Sem Docker
 1. Instale dependencias:
 ```bash
 npm install
 ```
-2. Gere o client do Prisma:
+2. Gere client Prisma:
 ```bash
 npx prisma generate
 ```
-3. Aplique schema no banco:
+3. Aplique schema:
 ```bash
 npx prisma db push
 ```
-4. Rode o seed:
+4. Rode seed:
 ```bash
 npx prisma db seed
 ```
-5. Suba a aplicacao:
+5. Inicie app:
 ```bash
 npm run dev
 ```
 
-## Como rodar os testes
+## Como rodar testes e validacoes
 ```bash
 npm test
-```
-
-Comandos uteis:
-```bash
-npm run test:ai
 npm run lint
 npm run build
 ```
 
-## Como usar a IA (chave real vs mock)
-A rota de IA obrigatoria e:
-- `POST /api/ai/summarize`
+Comando focado em IA:
+```bash
+npm run test:ai
+```
 
-Entrada aceita:
-- `ticketId`
-- ou `title + description`
+## Integracao de IA: chave real x fallback mock
+- Se `GEMINI_API_KEY` estiver definida, o provider Gemini e priorizado.
+- Senao, se `OPENAI_API_KEY` estiver definida, usa OpenAI.
+- Sem chaves validas, entra automaticamente em modo mock.
+- Na UI de detalhe do ticket, o banner indica quando o modo mock esta ativo.
 
-Saida padrao:
-- `summary`
-- `nextSteps`
-- `riskLevel`
-- `categories`
-
-Comportamento:
-- Com `GEMINI_API_KEY` ou `OPENAI_API_KEY`: usa `RealAIProvider`.
-- Sem chave valida: usa `MockAIProvider` automaticamente.
-- Na tela de detalhe, aparece banner: `Modo Mock ativo`.
-
-## Uso de IA no desenvolvimento
+## Uso de IA durante o desenvolvimento
 Ferramentas utilizadas:
 - Antigravity (Gemini)
 - Codex (GPT-5)
 
-Como foi usado:
-- apoio em ajustes de arquitetura e padroes de API
-- apoio em testes e revisao de cobertura
-- apoio em documentacao tecnica
+Como foi aplicado:
+- suporte a arquitetura e desenho de fluxos
+- revisao de contratos de API e validacoes
+- apoio em testes e documentacao
 
-Revisao manual:
-- todas as sugestoes foram revisadas e adaptadas antes de manter no codigo.
+Todas as sugestoes foram revisadas manualmente antes da adocao.
 
-## Proximos passos / melhorias futuras
-- adicionar historico de mudancas do ticket (auditoria mais detalhada)
-- adicionar streaming de resposta da IA na UI
-- expandir testes de integracao para `/api/tickets/[id]` e `/api/ai/summarize`
-- preparar pipeline CI com lint, test e build automaticos
+## Melhorias futuras
+- historico de alteracoes de tickets (auditoria)
+- streaming de resposta de IA na UI
+- mais testes de integracao para endpoints de tickets e IA
+- pipeline CI com lint, test e build

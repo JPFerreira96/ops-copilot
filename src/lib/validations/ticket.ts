@@ -7,26 +7,37 @@ import {
   ticketStatusValues,
 } from "@/lib/ticket-meta"
 
+const ticketTitleSchema = z
+  .string()
+  .trim()
+  .min(10, "Titulo deve ter no minimo 10 caracteres")
+  .max(150, "Titulo deve ter no maximo 150 caracteres")
+
+const ticketDescriptionSchema = z
+  .string()
+  .trim()
+  .min(30, "Descricao deve ter no minimo 30 caracteres")
+
+const ticketTagsSchema = z
+  .array(z.string().trim().min(2, "Tag invalida").max(30, "Tag invalida"))
+  .max(10, "Maximo de 10 tags")
+
 export const ticketSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(10, "Titulo deve ter no minimo 10 caracteres")
-    .max(150, "Titulo deve ter no maximo 150 caracteres"),
-  description: z
-    .string()
-    .trim()
-    .min(30, "Descricao deve ter no minimo 30 caracteres"),
+  title: ticketTitleSchema,
+  description: ticketDescriptionSchema,
   priority: z.enum(ticketPriorityValues).default("MEDIUM"),
   status: z.enum(ticketStatusValues).default("OPEN"),
-  tags: z
-    .array(z.string().trim().min(2, "Tag invalida").max(30, "Tag invalida"))
-    .max(10, "Maximo de 10 tags")
-    .default([]),
+  tags: ticketTagsSchema.default([]),
 })
 
-export const ticketUpdateSchema = ticketSchema
-  .partial()
+export const ticketUpdateSchema = z
+  .object({
+    title: ticketTitleSchema.optional(),
+    description: ticketDescriptionSchema.optional(),
+    priority: z.enum(ticketPriorityValues).optional(),
+    status: z.enum(ticketStatusValues).optional(),
+    tags: ticketTagsSchema.optional(),
+  })
   .refine((data) => Object.keys(data).length > 0, {
     message: "Informe ao menos um campo para atualizar",
   })

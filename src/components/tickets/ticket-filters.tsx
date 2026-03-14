@@ -8,13 +8,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   isTicketPriorityQuery,
   isTicketStatusQuery,
-  ticketPriorityFilterLabels,
   ticketPriorityOptions,
-  TicketPriorityFilter,
-  ticketStatusFilterLabels,
+  type TicketPriorityFilter,
   ticketStatusOptions,
-  TicketStatusFilter,
+  type TicketStatusFilter,
 } from "@/lib/ticket-meta"
+
+const statusFilterLabelsPtBr: Record<TicketStatusFilter, string> = {
+  all: "Todos os status",
+  open: "Aberto",
+  in_progress: "Em andamento",
+  done: "Concluído",
+}
+
+const priorityFilterLabelsPtBr: Record<TicketPriorityFilter, string> = {
+  all: "Todas as prioridades",
+  low: "Baixa",
+  medium: "Média",
+  high: "Alta",
+}
 
 export function TicketFilters() {
   const router = useRouter()
@@ -90,13 +102,15 @@ export function TicketFilters() {
 
       <Select value={selectedStatus} onValueChange={handleStatusChange}>
         <SelectTrigger className="w-full">
-          <SelectValue placeholder={ticketStatusFilterLabels.all} />
+          <SelectValue placeholder={statusFilterLabelsPtBr.all}>
+            {statusFilterLabelsPtBr[selectedStatus]}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">{ticketStatusFilterLabels.all}</SelectItem>
+          <SelectItem value="all">{statusFilterLabelsPtBr.all}</SelectItem>
           {ticketStatusOptions.map((option) => (
             <SelectItem key={option.value} value={option.value}>
-              {option.label}
+              {statusFilterLabelsPtBr[option.value]}
             </SelectItem>
           ))}
         </SelectContent>
@@ -104,13 +118,15 @@ export function TicketFilters() {
 
       <Select value={selectedPriority} onValueChange={handlePriorityChange}>
         <SelectTrigger className="w-full">
-          <SelectValue placeholder={ticketPriorityFilterLabels.all} />
+          <SelectValue placeholder={priorityFilterLabelsPtBr.all}>
+            {priorityFilterLabelsPtBr[selectedPriority]}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">{ticketPriorityFilterLabels.all}</SelectItem>
+          <SelectItem value="all">{priorityFilterLabelsPtBr.all}</SelectItem>
           {ticketPriorityOptions.map((option) => (
             <SelectItem key={option.value} value={option.value}>
-              {option.label}
+              {priorityFilterLabelsPtBr[option.value]}
             </SelectItem>
           ))}
         </SelectContent>

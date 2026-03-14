@@ -37,8 +37,8 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
   }
 }
 
-export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  console.info("[api/tickets/[id] PUT] Request recebida")
+async function updateTicket(request: NextRequest, context: { params: Promise<{ id: string }> }, method: "PATCH" | "PUT") {
+  console.info(`[api/tickets/[id] ${method}] Request recebida`)
 
   try {
     const session = await auth()
@@ -68,9 +68,17 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
       return apiErrorResponse(400, error.issues[0]?.message ?? "Dados invalidos", "VALIDATION_ERROR")
     }
 
-    console.error("[api/tickets/[id] PUT] Erro interno", error)
+    console.error(`[api/tickets/[id] ${method}] Erro interno`, error)
     return apiErrorResponse(500, "Falha ao atualizar ticket", "UPDATE_ERROR")
   }
+}
+
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  return updateTicket(request, context, "PATCH")
+}
+
+export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  return updateTicket(request, context, "PUT")
 }
 
 export async function DELETE(_request: NextRequest, context: { params: Promise<{ id: string }> }) {

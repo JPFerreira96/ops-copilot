@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { AlertCircle, ArrowLeft, Clock } from "lucide-react"
+import { AlertCircle, ArrowLeft, Clock, Pencil } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
@@ -29,22 +29,32 @@ export default async function TicketDetailsPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex items-center gap-4">
-        <Link
-          href="/tickets"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors hover:bg-muted"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
-            Ticket #{ticket.id.slice(-6).toUpperCase()}
-          </h1>
-          <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" />
-            Criado {format(new Date(ticket.createdAt), "dd 'de' MMMM, yyyy 'as' HH:mm", { locale: ptBR })}
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/tickets"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors hover:bg-muted"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
+              Ticket #{ticket.id.slice(-6).toUpperCase()}
+            </h1>
+            <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
+              Criado {format(new Date(ticket.createdAt), "dd 'de' MMMM, yyyy 'as' HH:mm", { locale: ptBR })}
+            </p>
+          </div>
         </div>
+
+        <Link
+          href={`/tickets/${ticket.id}/edit`}
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border bg-white px-3 text-sm font-medium transition-colors hover:bg-zinc-100 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+        >
+          <Pencil className="h-4 w-4" />
+          Editar ticket
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-3">
