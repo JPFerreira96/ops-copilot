@@ -25,6 +25,9 @@ Funcionalidades implementadas:
 - `/tickets/[id]`
 - `/tickets/[id]/edit`
 
+### URL do sistema em producao
+- `https://ops-copilot-40ipz9i8j-julio-paulos-projects.vercel.app`
+
 ## Stack tecnica
 | Camada | Tecnologia | Versao |
 |---|---|---|
@@ -89,16 +92,16 @@ flowchart TD
 ### 3) Fluxo de IA (resumo e fallback)
 ```mermaid
 flowchart TD
-    detail[Tela detalhe do ticket] --> call[POST api ai summarize]
-    call --> input[Entrada ticketId ou titulo descricao]
-    input --> enrich[Enriquecimento com tickets semelhantes]
-    enrich --> provider[Selecao de provider]
-    provider -->|com chave| real[GeminiProvider ou OpenAIProvider]
-    provider -->|sem chave| mock[MockAIProvider]
-    real --> normalize[Validacao e normalizacao da resposta]
-    mock --> normalize
-    normalize --> cache[Cache por ticketId 24h]
-    cache --> output[summary nextSteps riskLevel categories]
+    n1["Tela detalhe do ticket"] --> n2["POST /api/ai/summarize"]
+    n2 --> n3["Entrada: ticketId ou title + description"]
+    n3 --> n4["Enriquecimento com tickets semelhantes"]
+    n4 --> n5["Selecao de provider"]
+    n5 -->|com chave| n6["GeminiProvider ou OpenAIProvider"]
+    n5 -->|sem chave| n7["MockAIProvider"]
+    n6 --> n8["Validacao e normalizacao da resposta"]
+    n7 --> n8
+    n8 --> n9["Cache por ticketId (24h)"]
+    n9 --> n10["Saida: summary, nextSteps, riskLevel, categories"]
 ```
 
 ## Requisitos do teste tecnico atendidos
